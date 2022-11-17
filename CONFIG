@@ -1,0 +1,10 @@
+k=int=128
+eps=int=10
+path=str='.saved'
+softness_feature_construction=1
+softness_weights_feature_construction=list=1
+cell_size=tuple=28, 1
+grid_size=tuple=1, 28
+softness_feature_matching=int=4
+softness_weights_feature_matching=list=1, 0.8, 0.5, 0.3
+is_train=bool=False
