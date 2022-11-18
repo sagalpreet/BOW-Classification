@@ -4,19 +4,15 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from numba import jit
 
 # initialize seed
-np.random.seed(0)
+np.random.seed(1)
 
-@jit
 def ExtractFeatures(images, cell_size, grid_size):
     '''
     split image into grid of smaller images and return those
     each feature is flattened into an array
     '''
-    
-    for i in [0, 1]: assert cell_size[i] * grid_size[i] == images[0].shape[i]
     
     feature_size = np.prod(cell_size)
     split_images = np.empty(shape=(0, feature_size))
@@ -28,7 +24,6 @@ def ExtractFeatures(images, cell_size, grid_size):
     
     return split_images
 
-@jit
 def KMeansClustering(features, k, eps):
     '''
     return cluster centers of features by applying K-Means clustering and the corresponding BOW features
@@ -64,7 +59,6 @@ def KMeansClustering(features, k, eps):
                                           
     return new_k_means
 
-@jit
 def GetClosestMean(features, words, k, softness=1):
     '''
     gives indices of closest means (as per softness) to each of the features
@@ -78,14 +72,12 @@ def GetClosestMean(features, words, k, softness=1):
     closest_mean = np.argpartition(distance, softness, axis=1)[:, :softness]
     return closest_mean
 
-@jit
 def GetClosestFeature(features, means, k):
     '''
     gives index of closest feature to each of the means
     '''
     return np.array([np.argmin(np.linalg.norm(mean - features, axis=1)) for mean in means])
 
-@jit
 def ComputeHistogram(num_images, features, words, k, softness, softness_weights):
     '''
     generates the BOW features according to the words given
@@ -100,13 +92,10 @@ def ComputeHistogram(num_images, features, words, k, softness, softness_weights)
     
     return weights
 
-@jit
 def MatchHistogram(features_train, train_labels, features_test, softness, softness_weights):
     '''
     matches histogram using soft assignment
     '''
-    
-    assert softness == len(softness_weights), "Inconsistent Softness and length of Softness weights List"
     
     def get_weighted_mode(arr):
         from collections import defaultdict
@@ -121,8 +110,12 @@ def MatchHistogram(features_train, train_labels, features_test, softness, softne
         for i in tqdm(features_test)]
     ]
 
-@jit
-def CreateVisualDictionary(train_images, k, cell_size, grid_size, eps):
+def CreateVisualDictionary(train_images, 
+                            k, cell_size, 
+                            grid_size, 
+                            eps, 
+                            softness_feature_construction, 
+                            softness_weights_feature_construction):
     '''
     return visual dictionary
     1) extract features
@@ -134,7 +127,12 @@ def CreateVisualDictionary(train_images, k, cell_size, grid_size, eps):
     features = ExtractFeatures(train_images, cell_size, grid_size)
     means = KMeansClustering(features, k, eps)
     words = features[GetClosestFeature(features, means, k)]
-    features_train = ComputeHistogram(len(train_images), features, words, k)
+    features_train = ComputeHistogram(len(train_images), 
+                                        features, 
+                                        words, 
+                                        k, 
+                                        softness_feature_construction, 
+                                        softness_weights_feature_construction)
     return words, features_train
 
 def display_results(predicted_labels, test_labels):
@@ -181,7 +179,6 @@ def train(k
         ,cell_size
         ,grid_size
         ,train_images
-        ,train_labels
         ,test_images):
     '''
     train the classifier:
@@ -195,12 +192,18 @@ def train(k
     except:
         print('Path already exists')
         
-    dictionary, features_train = CreateVisualDictionary(train_images, k, cell_size, grid_size, eps)
+    dictionary, features_train = CreateVisualDictionary(train_images, 
+                                                        k, 
+                                                        cell_size, 
+                                                        grid_size, eps, 
+                                                        softness_feature_construction, 
+                                                        softness_weights_feature_construction)
+
     np.save(f'./{path}/dictionary', dictionary)
     np.save(f'./{path}/features_train', features_train)
     
     features_test = ComputeHistogram(len(test_images), 
-                                     ExtractFeatures(test_images), 
+                                     ExtractFeatures(test_images, cell_size, grid_size), 
                                      dictionary, 
                                      k, 
                                      softness_feature_construction, 
@@ -212,9 +215,8 @@ def train(k
 def predict(path
         ,softness_feature_matching
         ,softness_weights_feature_matching
-        ,test_images):
-    
-    dictionary = np.load(f'./{path}/dictionary.npy')
+        ,train_labels):
+
     features_train = np.load(f'./{path}/features_train.npy')
     features_test = np.load(f'./{path}/features_test.npy')
     
@@ -228,12 +230,13 @@ def predict(path
     return predicted_labels
 
 
-def main(*args, **kwargs):
+def main():
+    
     # loading dataset
     (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.fashion_mnist.load_data()
     
     # train
-    if (is_train:
+    if is_train:
         train(k
             ,eps
             ,path
@@ -242,7 +245,6 @@ def main(*args, **kwargs):
             ,cell_size
             ,grid_size
             ,train_images
-            ,train_labels
             ,test_images
         )
         
@@ -250,7 +252,7 @@ def main(*args, **kwargs):
     predicted_labels = predict(path
         ,softness_feature_matching
         ,softness_weights_feature_matching
-        ,test_images)
+        ,train_labels)
     
     
     # display result
@@ -261,14 +263,15 @@ if __name__=='__main__':
         if (datatype == 'str'): return val
         if (datatype == 'int'): return int(val)
         if (datatype == 'list'): return list(map(float, val.split(',')))
+        if (datatype == 'tuple'): return tuple(map(int, val.split(',')))
         if (datatype == 'bool'): return val=='True'
         
     with open('CONFIG', 'r') as config:
         while (True):
             try:    
-                var, datatype, val = config.readline().split('=')
+                var, datatype, val = config.readline().strip().split('=')
                 globals()[var] = parse_config(val, datatype)
             except:
                 break
-    
-    main(globals())
+
+    main()

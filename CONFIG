@@ -1,10 +1,10 @@
 k=int=128
 eps=int=10
-path=str='.saved'
-softness_feature_construction=1
-softness_weights_feature_construction=list=1
+path=str=data/128_10_28x1
+softness_feature_construction=int=5
+softness_weights_feature_construction=list=1, 0.8, 0.6, 0.4, 0.2
 cell_size=tuple=28, 1
 grid_size=tuple=1, 28
-softness_feature_matching=int=4
-softness_weights_feature_matching=list=1, 0.8, 0.5, 0.3
-is_train=bool=False
+softness_feature_matching=int=1
+softness_weights_feature_matching=list=1
+is_train=bool=True
